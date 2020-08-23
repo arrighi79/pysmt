@@ -1,4 +1,3 @@
-#!/bin/bash
 #
 # This file is part of pySMT.
 #
@@ -17,13 +16,11 @@
 #   limitations under the License.
 #
 
-#export NOSE_PROCESSES=-1
-#export NOSE_PROCESS_TIMEOUT=240
-export PYTHONDONTWRITEBYTECODE=True
+from pysmt.solvers.yices import YicesSolver
+from pysmt.optimization.optimizer import SUAOptimizerMixin, IncrementalOptimizerMixin
 
-# Skip slow tests (-A "not slow")
-# Exit on error (-x)
-# Rule of thumb: if a test takes more than 10 seconds it
-#                should be marked as slow using:
-#                    @attr("slow")
-python3 -m nose -v -A "not slow" -x pysmt/test
+class YicesSUAOptimizer(YicesSolver, SUAOptimizerMixin):
+    LOGICS = YicesSolver.LOGICS
+
+class YicesIncrementalOptimizer(YicesSolver, IncrementalOptimizerMixin):
+    LOGICS = YicesSolver.LOGICS

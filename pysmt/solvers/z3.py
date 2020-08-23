@@ -26,7 +26,7 @@ except ImportError:
 
 # Keep array models expressed as values instead of Lambdas
 # (see https://github.com/Z3Prover/z3/issues/1769)
-z3.set_param('model_compress', False)
+z3.set_param('model.compact', False)
 
 from six.moves import xrange
 
@@ -37,7 +37,8 @@ from pysmt.solvers.solver import (IncrementalTrackingSolver, UnsatCoreSolver,
                                   Model, Converter, SolverOptions)
 from pysmt.solvers.smtlib import SmtLibBasicSolver, SmtLibIgnoreMixin
 from pysmt.solvers.qelim import QuantifierEliminator
-from pysmt.solvers.optimizer import Optimizer, SUAOptimizerMixin, IncrementalOptimizerMixin
+from pysmt.optimization.optimizer import Optimizer, SUAOptimizerMixin, IncrementalOptimizerMixin
+from pysmt.solvers.interpolation import Interpolator
 
 from pysmt.walkers import DagWalker
 from pysmt.exceptions import (SolverReturnedUnknownResultError,
@@ -48,7 +49,7 @@ from pysmt.exceptions import (SolverReturnedUnknownResultError,
                               PysmtInfinityError, PysmtInfinitesimalError,
                               PysmtUnboundedOptimizationError)
 from pysmt.decorators import clear_pending_pop, catch_conversion_error
-from pysmt.logics import LRA, LIA, QF_UFLRA, PYSMT_LOGICS
+from pysmt.logics import LRA, LIA, QF_UFLRA, QF_UFLIA, PYSMT_LOGICS
 from pysmt.oracles import get_logic
 from pysmt.constants import Fraction, Numeral, is_pysmt_integer
 
@@ -975,51 +976,49 @@ class Z3QuantifierEliminator(QuantifierEliminator):
         pass
 
 
-class Z3NativeOptimizer(Optimizer, Z3Solver):
+class Z3Interpolator(Interpolator):
 
-    LOGICS = Z3Solver.LOGICS
+    LOGICS = [QF_UFLIA, QF_UFLRA]
 
-    def __init__(self, environment, logic, **options):
-        Z3Solver.__init__(self, environment=environment,
-                          logic=logic, **options)
-        self.z3 = z3.Optimize()
+    def __init__(self, environment, logic=None):
+        Interpolator.__init__(self)
+        self.environment = environment
+        self.logic = logic
+        self.converter = Z3Converter(environment, z3_ctx=z3._get_ctx(None))
 
-    def optimize(self, cost_function, **kwargs):
-        obj = self.converter.convert(cost_function)
-        h = self.z3.minimize(obj)
+    def _check_logic(self, formulas):
+        for f in formulas:
+            logic = get_logic(f, self.environment)
+            ok = any(logic <= l for l in self.LOGICS)
+            if not ok:
+                raise PysmtValueError("Logic not supported by Z3 interpolation."
+                                      "(detected logic is: %s)" % str(logic))
 
-        res = self.z3.check()
-        if res == z3.sat:
-            opt_value = self.z3.lower(h)
-            try:
-                self.converter.back(opt_value)
-                model = Z3Model(self.environment, self.z3.model())
-                return model, model.get_value(cost_function)
-            except PysmtInfinityError:
-                raise PysmtUnboundedOptimizationError("The optimal value is unbounded")
-            except PysmtInfinitesimalError:
-                raise PysmtUnboundedOptimizationError("The optimal value is infinitesimal")
-        else:
-            return None
+    def binary_interpolant(self, a, b):
+        self._check_logic([a, b])
 
+        a = self.converter.convert(a)
+        b = self.converter.convert(b)
 
-    def pareto_optimize(self, cost_functions):
-        self.z3.set(priority='pareto')
-        criteria = []
-        for cf in cost_functions:
-            obj = self.converter.convert(cf)
-            criteria.append(self.z3.minimize(obj))
+        try:
+            itp = z3.binary_interpolant(a, b)
+            pysmt_res = self.converter.back(itp)
+        except z3.ModelRef:
+            pysmt_res = None
 
-        while self.z3.check() == z3.sat:
-            model = Z3Model(self.environment, self.z3.model())
-            yield model, [model.get_value(x) for x in cost_functions]
+        return pysmt_res
 
-    def can_diverge_for_unbounded_cases(self):
-        return False
+    def sequence_interpolant(self, formulas):
+        self._check_logic(formulas)
 
+        zf = [self.converter.convert(f) for f in formulas]
+        try:
+            itp = z3.sequence_interpolant(zf)
+            pysmt_res = [self.converter.back(f) for f in itp]
+        except z3.ModelRef:
+            pysmt_res = None
 
-class Z3SUAOptimizer(Z3Solver, SUAOptimizerMixin):
-    LOGICS = Z3Solver.LOGICS
+        return pysmt_res
 
-class Z3IncrementalOptimizer(Z3Solver, IncrementalOptimizerMixin):
-    LOGICS = Z3Solver.LOGICS
+    def _exit(self):
+        pass

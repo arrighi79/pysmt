@@ -31,7 +31,11 @@ except ImportError:
 from pysmt.solvers.eager import EagerModel
 from pysmt.solvers.solver import Solver, Converter, SolverOptions
 from pysmt.solvers.smtlib import SmtLibBasicSolver, SmtLibIgnoreMixin
+<<<<<<< HEAD
 from pysmt.solvers.optimizer import SUAOptimizerMixin, IncrementalOptimizerMixin
+=======
+from pysmt.optimization.optimizer import SUAOptimizerMixin, IncrementalOptimizerMixin
+>>>>>>> upstream/optimization
 
 from pysmt.walkers import DagWalker
 from pysmt.exceptions import SolverReturnedUnknownResultError
@@ -462,9 +466,11 @@ class YicesConverter(Converter, DagWalker):
     def walk_bv_constant(self, formula, **kwargs):
         width = formula.bv_width()
         res = None
-        if width <= 64:
-            # we can use the numberical representation
-            value = formula.constant_value()
+        value = formula.constant_value()
+        if value <= ((2**63) - 1):
+            # we can use the numerical representation
+            # Note: yicespy uses *signed* longs in the API, so the maximal
+            # representable number is 2^63 - 1
             res = yicespy.yices_bvconst_uint64(width, value)
         else:
             # we must resort to strings to communicate the result to yices
@@ -650,9 +656,3 @@ class YicesConverter(Converter, DagWalker):
             yicespy.yices_set_term_name(decl, var.symbol_name())
             self.symbol_to_decl[var] = decl
             self.decl_to_symbol[decl] = var
-
-class YicesSUAOptimizer(YicesSolver, SUAOptimizerMixin):
-    LOGICS = YicesSolver.LOGICS
-
-class YicesIncrementalOptimizer(YicesSolver, IncrementalOptimizerMixin):
-    LOGICS = YicesSolver.LOGICS

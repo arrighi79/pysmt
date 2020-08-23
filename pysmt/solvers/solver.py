@@ -19,6 +19,7 @@ from six.moves import xrange
 
 from pysmt.typing import BOOL
 from pysmt.solvers.options import SolverOptions
+from pysmt.decorators import clear_pending_pop
 from pysmt.exceptions import (SolverReturnedUnknownResultError, PysmtValueError,
                               SolverNotConfiguredForUnsatCoresError,
                               PysmtTypeError, SolverStatusError)
@@ -334,6 +335,7 @@ class IncrementalTrackingSolver(Solver):
         return self._last_result
 
     @property
+    @clear_pending_pop
     def assertions(self):
         """Returns the list of assertions that are still in the solver.
 
@@ -493,6 +495,45 @@ class Model(object):
             v = self.get_py_value(f, model_completion=model_completion)
             res[f] = v
         return res
+
+    def satisfies(self, formula, solver=None):
+        """Checks whether the model satisfies the formula.
+
+        The optional solver argument is used to complete partial
+        models.
+        """
+
+        subs = self.get_values(formula.get_free_variables())
+        simp = formula.substitute(subs).simplify()
+        if simp.is_true():
+            return True
+        if simp.is_false():
+            return False
+
+        free_vars = simp.get_free_variables()
+        if  len(free_vars) > 0:
+            # Partial model
+            return False
+        
+        if self.environment.enable_div_by_0 and solver is not None:
+            # Models might not be simplified to a constant value
+            # if there is a division by zero. We find the
+            # division(s) and ask the solver for a replacement
+            # expression.
+            stack = [simp]
+            div_0 = []
+            while stack:
+                x = stack.pop()
+                if x.is_constant():
+                    pass
+                elif x.is_div() and x.arg(1).is_zero():
+                    div_0.append(x)
+                stack += x.args()
+
+            subs = self.get_values(div_0)
+            simp = simp.substitute(subs).simplify()
+            return simp.is_true()
+        return False
 
     @property
     def converter(self):

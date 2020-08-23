@@ -1,4 +1,3 @@
-#!/bin/bash
 #
 # This file is part of pySMT.
 #
@@ -16,14 +15,3 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-
-#export NOSE_PROCESSES=-1
-#export NOSE_PROCESS_TIMEOUT=240
-export PYTHONDONTWRITEBYTECODE=True
-
-# Skip slow tests (-A "not slow")
-# Exit on error (-x)
-# Rule of thumb: if a test takes more than 10 seconds it
-#                should be marked as slow using:
-#                    @attr("slow")
-python3 -m nose -v -A "not slow" -x pysmt/test

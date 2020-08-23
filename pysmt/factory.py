@@ -51,7 +51,7 @@ DEFAULT_PREFERENCES = {'Solver': ['msat', 'optimsat', 'z3', 'cvc4', 'yices', 'bt
                                      'msat_incr', 'optimsat_incr', 'yices_incr', 'z3_incr',
                                      'msat_sua', 'optimsat_sua', 'yices_sua', 'z3_sua'
                                     ],
-                       'Interpolator': ['msat', 'optimsat']}
+                       'Interpolator': ['msat', 'optimsat', 'z3']}
 DEFAULT_LOGIC = QF_UFLIRA
 DEFAULT_QE_LOGIC = LRA
 DEFAULT_INTERPOLATION_LOGIC = QF_UFLRA
@@ -74,7 +74,6 @@ class Factory(object):
         self._all_interpolators = None
         self._all_optimizers = None
         self._generic_solvers = {}
-
         self.preferences = dict(DEFAULT_PREFERENCES)
         if preferences is not None:
             self.preferences.update(preferences)
@@ -82,7 +81,6 @@ class Factory(object):
         self._default_logic = DEFAULT_LOGIC
         self._default_qe_logic = DEFAULT_QE_LOGIC
         self._default_interpolation_logic = DEFAULT_INTERPOLATION_LOGIC
-        self._default_optimizer_logic = DEFAULT_OPTIMIZER_LOGIC
         self._get_available_solvers()
         self._get_available_qe()
         self._get_available_interpolators()
@@ -245,7 +243,7 @@ class Factory(object):
         try:
             from pysmt.solvers.dynmsat import MSATLibLoader
             MSATLibLoader("optimathsat")
-            from pysmt.solvers.optimsat import OptiMSATSolver
+            from pysmt.optimization.optimsat import OptiMSATSolver
             installed_solvers['optimsat'] = OptiMSATSolver
         except SolverAPINotFound:
             pass
@@ -327,8 +325,8 @@ class Factory(object):
         try:
             from pysmt.solvers.dynmsat import MSATLibLoader
             MSATLibLoader("optimathsat")
-            from pysmt.solvers.optimsat import (OptiMSATFMQuantifierEliminator,
-                                                OptiMSATLWQuantifierEliminator)
+            from pysmt.optimization.optimsat import (OptiMSATFMQuantifierEliminator,
+                                                     OptiMSATLWQuantifierEliminator)
             self._all_qelims['optimsat_fm'] = OptiMSATFMQuantifierEliminator
             self._all_qelims['optimsat_lw'] = OptiMSATLWQuantifierEliminator
         except SolverAPINotFound:
@@ -358,7 +356,7 @@ class Factory(object):
         try:
             from pysmt.solvers.dynmsat import MSATLibLoader
             MSATLibLoader("optimathsat")
-            from pysmt.solvers.optimsat import OptiMSATInterpolator
+            from pysmt.optimization.optimsat import OptiMSATInterpolator
             self._all_interpolators['optimsat'] = OptiMSATInterpolator
         except SolverAPINotFound:
             pass
@@ -367,7 +365,7 @@ class Factory(object):
         self._all_optimizers = {}
 
         try:
-            from pysmt.solvers.z3 import Z3NativeOptimizer, Z3SUAOptimizer, \
+            from pysmt.optimization.z3 import Z3NativeOptimizer, Z3SUAOptimizer, \
                 Z3IncrementalOptimizer
             self._all_optimizers['z3'] = Z3NativeOptimizer
             self._all_optimizers['z3_sua'] = Z3SUAOptimizer
@@ -378,7 +376,7 @@ class Factory(object):
         try:
             from pysmt.solvers.dynmsat import MSATLibLoader
             MSATLibLoader("mathsat")
-            from pysmt.solvers.msat import MSatSUAOptimizer, MSatIncrementalOptimizer
+            from pysmt.optimization.msat import MSatSUAOptimizer, MSatIncrementalOptimizer
             self._all_optimizers['msat_sua'] = MSatSUAOptimizer
             self._all_optimizers['msat_incr'] = MSatIncrementalOptimizer
         except SolverAPINotFound:
@@ -387,16 +385,18 @@ class Factory(object):
         try:
             from pysmt.solvers.dynmsat import MSATLibLoader
             MSATLibLoader("optimathsat")
-            from pysmt.solvers.optimsat import OptiMSATSolver, \
+            from pysmt.optimization.optimsat import OptiMSATSolver, \
                 OptiMSATSUAOptimizer, OptiMSATIncrementalOptimizer
             self._all_optimizers['optimsat'] = OptiMSATSolver
             self._all_optimizers['optimsat_sua'] = OptiMSATSUAOptimizer
             self._all_optimizers['optimsat_incr'] = OptiMSATIncrementalOptimizer
         except SolverAPINotFound:
             pass
+        except SolverAPINotFound:
+            pass
 
         try:
-            from pysmt.solvers.yices import YicesSUAOptimizer, YicesIncrementalOptimizer
+            from pysmt.optimization.yices import YicesSUAOptimizer, YicesIncrementalOptimizer
             self._all_optimizers['yices_sua'] = YicesSUAOptimizer
             self._all_optimizers['yices_incr'] = YicesIncrementalOptimizer
         except SolverAPINotFound:
@@ -428,6 +428,18 @@ class Factory(object):
     def set_interpolation_preference_list(self, preference_list):
         """Defines the order in which to pick the solvers."""
         self.set_preference_list('Interpolator', preference_list)
+
+    def set_optimizer_preference_list(self, preference_list):
+        """Defines the order in which to pick the optimizers."""
+        self.set_preference_list('Optimizer', preference_list)
+
+
+    def set_optimizer_preference_list(self, preference_list):
+        """Defines the order in which to pick the optimizers."""
+        assert preference_list is not None
+        assert len(preference_list) > 0
+        self.optimizer_preference_list = preference_list
+
 
     def set_optimizer_preference_list(self, preference_list):
         """Defines the order in which to pick the optimizers."""
@@ -530,8 +542,6 @@ class Factory(object):
         If logic is None, the map will contain all the known solvers
         """
         return self._filter_solvers(self._all_optimizers, logic=logic)
-
-
 
     ##
     ## Wrappers: These functions are exported in shortcuts
