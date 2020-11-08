@@ -142,11 +142,13 @@ class MaxSMTGoal(Goal):
     Attention: some solvers may not support this goal
     """
 
-    def __init__(self, clause, weight):
-        raise NotImplementedError
-        """Accepts soft clauses and the relative weights"""
-        self.soft =  zip(clause, weight)
+    def __init__(self):
+        self.soft =  []
 
     def add_soft_clause(self, clause, weight):
         """Accepts soft clauses and the relative weights"""
         self.soft.append((clause, weight))
+
+    def get_soft(self):
+        return self.soft
+

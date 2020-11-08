@@ -387,11 +387,8 @@ class Factory(object):
         try:
             from pysmt.solvers.dynmsat import MSATLibLoader
             MSATLibLoader("optimathsat")
-            from pysmt.optimization.optimsat import OptiMSATSolver, \
-                OptiMSATSUAOptimizer, OptiMSATIncrementalOptimizer
+            from pysmt.optimization.optimsat import OptiMSATSolver
             self._all_optimizers['optimsat'] = OptiMSATSolver
-            self._all_optimizers['optimsat_sua'] = OptiMSATSUAOptimizer
-            self._all_optimizers['optimsat_incr'] = OptiMSATIncrementalOptimizer
         except SolverAPINotFound:
             pass
         except SolverAPINotFound:

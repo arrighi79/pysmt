@@ -22,7 +22,7 @@ from pysmt.shortcuts import Optimizer, GE, Int, Symbol, INT, LE, GT, REAL, Real
 from pysmt.shortcuts import And, Plus, Minus, get_env
 from pysmt.logics import QF_LIA, QF_LRA
 from pysmt.optimization.goal import MaximizationGoal, MinimizationGoal, \
-    MinMaxGoal, MaxMinGoal
+    MinMaxGoal, MaxMinGoal, MaxSMTGoal
 
 from pysmt.exceptions import PysmtUnboundedOptimizationError
 
@@ -39,6 +39,23 @@ class TestOptimization(TestCase):
                 model, cost = opt.optimize(min)
                 self.assertEqual(model[x], Int(10))
 
+    def test_maxsmt_basic(self):
+        x = Symbol("x", INT)
+        maxsmt = MaxSMTGoal()
+        maxsmt.add_soft_clause(GE(x, Int(5)), 8)
+        maxsmt.add_soft_clause(GE(x, Int(30)), 20)
+        maxsmt.add_soft_clause(LE(x, Int(10)), 100)
+        maxsmt.add_soft_clause(LE(x, Int(9)), 6)
+        formula = GE(x, Int(9))
+        for oname in get_env().factory.all_optimizers(logic=QF_LIA):
+            with Optimizer(name=oname) as opt:
+                if oname == "optimsat":
+                    self.assertEqual(True, True)
+                else:
+                    print(oname)
+                    opt.add_assertion(formula)
+                    model, cost = opt.optimize(maxsmt)
+                    self.assertEqual(model[x], Int(9))
 
     @skipIfNoOptimizerForLogic(QF_LIA)
     def test_maximization_basic(self):

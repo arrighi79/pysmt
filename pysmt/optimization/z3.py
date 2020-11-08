@@ -25,7 +25,7 @@ from pysmt.exceptions import PysmtInfinityError, \
     SolverAPINotFound, GoalNotSupportedError
 
 from pysmt.optimization.optimizer import Optimizer, \
-    SUAOptimizerMixin, IncrementalOptimizerMixin
+    SUAOptimizerMixin, IncrementalOptimizerMixin, maxsmt_opt
 
 try:
     import z3
@@ -52,6 +52,10 @@ class Z3NativeOptimizer(Optimizer, Z3Solver):
         return  h
 
     def optimize(self, goal, **kwargs):
+
+        if goal.is_maxsmt_goal():
+            goal = maxsmt_opt(goal)
+
         h = self._assert_z3_goal(goal)
 
         if h is not None:
@@ -70,6 +74,7 @@ class Z3NativeOptimizer(Optimizer, Z3Solver):
                 return None
         else:
             return None
+
 
     def pareto_optimize(self, goals):
         self.z3.set(priority='pareto')

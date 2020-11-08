@@ -19,9 +19,24 @@
 from pysmt.solvers.solver import Solver
 from pysmt.exceptions import PysmtValueError, GoalNotSupportedError
 from pysmt.optimization.goal import MinimizationGoal, MaximizationGoal
-from pysmt.shortcuts import Symbol, INT, REAL, BVType, Equals
+from pysmt.shortcuts import Symbol, INT, REAL, BVType, Equals, Ite, Int, Plus
 from pysmt.logics import LIA, LRA, BV
 from pysmt.oracles import get_logic
+
+
+def maxsmt_opt(goal):
+    soft = goal.get_soft()
+    formula = None
+    for (c, w) in soft:
+        if formula is not None:
+            formula = Plus(formula, Ite(c, Int(w), Int(0)))
+        else:
+            formula = Ite(c, Int(w), Int(0))
+    if formula is not None:
+        m = MaximizationGoal(formula)
+        return m
+    else:
+        return None
 
 class Optimizer(Solver):
     """
@@ -318,7 +333,7 @@ class ExternalOptimizerMixin(Optimizer):
         optimum will be found in the proximity of `step_size`
         """
         rt = None, None
-        if goal.is_maximization_goal() or goal.is_minimization_goal():
+        if goal.is_maximization_goal() or goal.is_minimization_goal() or goal.is_maxsmt_goal():
             rt = self._optimize(goal, strategy)
         else:
             raise GoalNotSupportedError("ExternalOptimizerMixin", goal)
@@ -353,6 +368,8 @@ class ExternalOptimizerMixin(Optimizer):
 
 
     def _optimize(self, goal, strategy, extra_assumption = None):
+        if goal.is_maxsmt_goal():
+            goal = maxsmt_opt(goal)
         model = None
         client_data = self._setup()
         current = OptSearchInterval(goal, self.environment, client_data)
@@ -381,6 +398,9 @@ class ExternalOptimizerMixin(Optimizer):
         self._cleanup(client_data)
 
         return model, model.get_value(goal.term())
+
+
+
 
 
 
